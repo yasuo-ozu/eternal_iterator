@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - toolchain: stable
+          - toolchain: nightly
+          - toolchain: 1.60.0
+          - toolchain: 1.50.0
+          - toolchain: 1.40.0
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+      - name: Test
+        run: |
+          cargo test
+          cargo doc
