@@ -3,6 +3,7 @@
 [![Test Status](https://github.com/yasuo-ozu/eternal_iterator/workflows/Tests/badge.svg?event=push)](https://github.com/yasuo-ozu/eternal_iterator/actions)
 [![Crate](https://img.shields.io/crates/v/eternal_iterator.svg)](https://crates.io/crates/eternal_iterator)
 [![Docs](https://docs.rs/eternal_iterator/badge.svg)](https://docs.rs/eternal_iterator)
+[![Minimum rustc version](https://img.shields.io/badge/rustc-1.51+-lightgray.svg)]()
 
 This Rust crate provides EternalIterator trait, which promises that the iterator
 iterates forever.
