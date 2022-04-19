@@ -54,26 +54,26 @@ pub unsafe trait EternalIterator: Iterator {
 	}
 
 	/// Generate new `N`-sized array using [`EternalIterator::next_eternal()`].
+	/// Uninhabited values may cause UB here.
 	///
 	/// ```
 	/// # use eternal_iterator::prelude::*;
 	/// let arr: [i32; 5] = (0..).next_array();
 	/// assert_eq!(arr, [0, 1, 2, 3, 4]);
 	/// ```
-	fn next_array<const N: usize>(&mut self) -> [Self::Item; N]
-	where
-		[(); N]: Default,
-	{
+	fn next_array<const N: usize>(&mut self) -> [Self::Item; N] {
 		use core::mem::MaybeUninit;
+		let mut arr = MaybeUninit::<[Self::Item; N]>::uninit();
 		// SAFETY: The sizes of both size is the same and uninitialized MaybeUninit is
 		// valid.
-		let mut arr =
-			unsafe { MaybeUninit::<[MaybeUninit<Self::Item>; N]>::uninit().assume_init() };
-		arr.as_mut().iter_mut().for_each(|mu| {
-			mu.write(self.next_eternal());
-		});
-		// SAFETY: MaybeUninited is initialized with `write()`
-		arr.map(|mu| unsafe { mu.assume_init() })
+		unsafe { &mut *(arr.as_mut_ptr() as *mut [MaybeUninit<Self::Item>; N]) }
+			.iter_mut()
+			.for_each(|mu| {
+				*mu = MaybeUninit::new(self.next_eternal());
+			});
+
+		// SAFETY: MaybeUninited is initialized here.
+		unsafe { arr.assume_init() }
 	}
 }
 
