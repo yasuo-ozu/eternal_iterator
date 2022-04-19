@@ -44,7 +44,37 @@ pub unsafe trait EternalIterator: Iterator {
 	/// assert_eq!(it.next_eternal(), 123);
 	/// assert_eq!(it.next_eternal(), 123);
 	/// ```
-	fn next_eternal(&mut self) -> Self::Item;
+	#[inline]
+	fn next_eternal(&mut self) -> Self::Item {
+		if let Some(item) = self.next() {
+			item
+		} else {
+			unreachable!()
+		}
+	}
+
+	/// Generate new `N`-sized array using [`EternalIterator::next_eternal()`].
+	///
+	/// ```
+	/// # use eternal_iterator::prelude::*;
+	/// let arr: [i32; 5] = (0..).next_array();
+	/// assert_eq!(arr, [0, 1, 2, 3, 4]);
+	/// ```
+	fn next_array<const N: usize>(&mut self) -> [Self::Item; N]
+	where
+		[(); N]: Default,
+	{
+		use core::mem::MaybeUninit;
+		// SAFETY: The sizes of both size is the same and uninitialized MaybeUninit is
+		// valid.
+		let mut arr =
+			unsafe { MaybeUninit::<[MaybeUninit<Self::Item>; N]>::uninit().assume_init() };
+		arr.as_mut().iter_mut().for_each(|mu| {
+			mu.write(self.next_eternal());
+		});
+		// SAFETY: MaybeUninited is initialized with `write()`
+		arr.map(|mu| unsafe { mu.assume_init() })
+	}
 }
 
 // SAFETY: precondition is satisfied obviously.
@@ -63,14 +93,6 @@ macro_rules! impl_eternal_iterator {
 			where
 				$obj: Iterator
 			{
-				#[inline]
-				fn next_eternal(&mut self) -> Self::Item {
-					if let Some(item) = self.next() {
-						item
-					} else {
-						unreachable!()
-					}
-				}
 			}
 		)+
 	};
@@ -224,3 +246,57 @@ where
 		std::mem::replace(&mut self.next, item)
 	}
 }
+
+/// It is used on the implementation of [`wrap_unsafe()`]. See [`wrap_unsafe()`]
+/// document for details.
+pub struct UnsafeWrapper<I>(I);
+
+/// Wraps [`Iterator`] to be seen as [`EternalIterator`].
+///
+/// # Safety
+/// [`Iterator::next()`] of `slot` never returns `None` value.
+///
+/// ```
+/// # use eternal_iterator::prelude::*;
+/// # use eternal_iterator::wrap_unsafe;
+/// struct I;
+/// impl Iterator for I {
+/// 	type Item = i32;
+/// 	fn next(&mut self) -> Option<i32> {
+/// 		Some(123)
+/// 	}
+/// }
+/// let mut it = unsafe { wrap_unsafe(I) };
+/// assert_eq!(it.next_eternal(), 123);
+/// assert_eq!(it.next_eternal(), 123);
+/// assert_eq!(it.next_eternal(), 123);
+/// assert_eq!(it.next_eternal(), 123);
+/// ```
+pub unsafe fn wrap_unsafe<II: IntoIterator>(slot: II) -> UnsafeWrapper<II::IntoIter> {
+	UnsafeWrapper(slot.into_iter())
+}
+
+/// Safe version of [`wrap_unsafe()`]
+///
+/// ```
+/// # use eternal_iterator::prelude::*;
+/// # use eternal_iterator::wrap;
+/// let mut it = wrap(core::iter::repeat(123));
+/// assert_eq!(it.next_eternal(), 123);
+/// assert_eq!(it.next_eternal(), 123);
+/// assert_eq!(it.next_eternal(), 123);
+/// assert_eq!(it.next_eternal(), 123);
+/// ```
+pub fn wrap<I: EternalIterator, II: IntoIterator<IntoIter = I>>(slot: II) -> UnsafeWrapper<I> {
+	UnsafeWrapper(slot.into_iter())
+}
+
+impl<I: Iterator> Iterator for UnsafeWrapper<I> {
+	type Item = I::Item;
+	fn next(&mut self) -> Option<I::Item> {
+		self.0.next()
+	}
+}
+
+// SAFETY: Checked with `wrap_unsafe()`
+unsafe impl<I: Iterator> EternalIterator for UnsafeWrapper<I> {}
