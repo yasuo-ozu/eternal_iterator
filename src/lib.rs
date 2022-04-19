@@ -243,7 +243,7 @@ where
 	#[inline]
 	fn next_eternal(&mut self) -> Self::Item {
 		let item = (self.succ)(&self.next);
-		std::mem::replace(&mut self.next, item)
+		core::mem::replace(&mut self.next, item)
 	}
 }
 
