@@ -140,7 +140,6 @@ impl_eternal_iterator! {
 	impl ['a, T: 'a + Clone, I: EternalIterator<Item = &'a T>] for core::iter::Cloned<I> {
 		"std::iter::repeat(&123).cloned()" => ["123", "123", "123"]
 	};
-	impl [I: EternalIterator, St, F] for core::iter::Scan<I, St, F>;
 	impl [I: EternalIterator, F] for core::iter::FilterMap<I, F> {
 		"(0..).filter_map(|x| (x % 2 == 0).then(|| x))" => ["0", "2", "4"]
 	};
