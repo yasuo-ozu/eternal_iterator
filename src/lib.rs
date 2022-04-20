@@ -86,9 +86,24 @@ unsafe impl<I: EternalIterator + ?Sized> EternalIterator for &mut I {
 }
 
 macro_rules! impl_eternal_iterator {
-	($(impl [$($param:tt)*] for $obj:ty;)+) => {
+	($($(#[doc = $doc:expr])* impl [$($param:tt)*] for $obj:ty $({ $lassert:expr => [$($rassert:expr),*] })*;)+) => {
 		$(
 			// SAFETY: precondition is satisfied obviously.
+			$(
+				#[doc = $doc]
+			)*
+			$(
+				#[doc = concat!(
+					"```\n# use eternal_iterator::*;\nlet mut it = ",
+					$lassert,
+					$(concat!(
+						";\nassert_eq!(it.next_eternal(), ",
+						$rassert,
+						")"
+					),)*
+					";\n```"
+				)]
+			)*
 			unsafe impl<$($param)*> EternalIterator for $obj
 			where
 				$obj: Iterator
@@ -99,39 +114,77 @@ macro_rules! impl_eternal_iterator {
 }
 
 macro_rules! impl_eternal_iterator_blanket {
-	($($($pitem:ident)::+ [$($id:ident),+];)+) => {
+	($($(#[doc = $doc:expr])* $($pitem:ident)::+ [$($id:ident),+] $({ $lassert:expr => [$($rassert:expr),*] })*;)+) => {
 		$(
-			impl_eternal_iterator! { impl [$($id: EternalIterator),+] for $($pitem)::+<$($id),+>; }
+			impl_eternal_iterator! { $(#[doc = $doc])* impl [$($id: EternalIterator),+] for $($pitem)::+<$($id),+> $({ $lassert => [$($rassert),*] })*; }
 		)+
 	};
 }
 
 impl_eternal_iterator! {
-	impl [A: Clone] for core::iter::Repeat<A>;
-	impl [A, F: FnMut() -> A] for core::iter::RepeatWith<F>;
-	impl [I: Clone + Iterator] for core::iter::Cycle<I>;
-	impl [A: Iterator, B: EternalIterator<Item = A::Item>] for core::iter::Chain<A, B>;
-	impl [A: EternalIterator, B: EternalIterator] for core::iter::Zip<A, B>;
-	impl ['a, T: 'a + Clone, I: EternalIterator<Item = &'a T>] for core::iter::Cloned<I>;
+	impl [A: Clone] for core::iter::Repeat<A> {
+		"std::iter::repeat(123)" => ["123", "123", "123"]
+	};
+	impl [A, F: FnMut() -> A] for core::iter::RepeatWith<F> {
+		"std::iter::repeat_with(|| 123)" => ["123", "123", "123"]
+	};
+	impl [I: Clone + Iterator] for core::iter::Cycle<I> {
+		"(0..2).cycle()" => ["0", "1", "0", "1"]
+	};
+	impl [A: Iterator, B: EternalIterator<Item = A::Item>] for core::iter::Chain<A, B> {
+		"(0..2).chain(4..)" => ["0", "1", "4", "5"]
+	};
+	impl [A: EternalIterator, B: EternalIterator] for core::iter::Zip<A, B> {
+		"(0..).zip(4..)" => ["(0, 4)", "(1, 5)", "(2, 6)"]
+	};
+	impl ['a, T: 'a + Clone, I: EternalIterator<Item = &'a T>] for core::iter::Cloned<I> {
+		"std::iter::repeat(&123).cloned()" => ["123", "123", "123"]
+	};
 	impl [I: EternalIterator, St, F] for core::iter::Scan<I, St, F>;
-	impl [I: EternalIterator, F] for core::iter::FilterMap<I, F>;
-	impl [I: EternalIterator, F] for core::iter::Map<I, F>;
-	impl [II: IntoIterator, I: EternalIterator<Item = II>] for core::iter::Flatten<I>;
+	impl [I: EternalIterator, F] for core::iter::FilterMap<I, F> {
+		"(0..).filter_map(|x| (x % 2 == 0).then(|| x))" => ["0", "2", "4"]
+	};
+	impl [I: EternalIterator, F] for core::iter::Map<I, F> {
+		"(0..).map(|x| x * 2)" => ["0", "2", "4"]
+	};
+	impl [II: IntoIterator, I: EternalIterator<Item = II>] for core::iter::Flatten<I> {
+		"(0..).map(|x| x..(x + 2)).flatten()" => ["0", "1", "1", "2", "2"]
+	};
 	impl [I: EternalIterator, F] for core::iter::Inspect<I, F>;
-	impl [I: EternalIterator, P] for core::iter::Filter<I, P>;
-	impl [I: EternalIterator, P] for core::iter::SkipWhile<I, P>;
-	impl [I: EternalIterator, U: IntoIterator, F] for core::iter::FlatMap<I, U, F>;
-	impl [A] for core::ops::RangeFrom<A>;
+	impl [I: EternalIterator, P] for core::iter::Filter<I, P> {
+		"(0..).filter(|x| x % 2 == 0)" => ["0", "2", "4"]
+	};
+	impl [I: EternalIterator, P] for core::iter::SkipWhile<I, P> {
+		"(-3_i32..).skip_while(|x| x.is_negative())" => ["0", "1", "2"]
+	};
+	impl [I: EternalIterator, U: IntoIterator, F] for core::iter::FlatMap<I, U, F> {
+		"(0..).flat_map(|x| x..(x + 2))" => ["0", "1", "1", "2"]
+	};
+	impl [A] for core::ops::RangeFrom<A> {
+		"(0..)" => ["0", "1", "2"]
+	};
 	impl [I: EternalIterator<Item = u16>] for core::char::DecodeUtf16<I>;
 }
 
 impl_eternal_iterator_blanket! {
-	core::iter::Enumerate[I];
-	core::iter::Copied[I];
-	core::iter::Fuse[I];
-	core::iter::Skip[I];
-	core::iter::StepBy[I];
-	core::iter::Peekable[I];
+	core::iter::Enumerate[I] {
+		"std::iter::repeat(123).enumerate()" => ["(0, 123)", "(1, 123)", "(2, 123)"]
+	};
+	core::iter::Copied[I] {
+		"std::iter::repeat(&123).copied()" => ["123", "123", "123"]
+	};
+	core::iter::Fuse[I] {
+		"(0..).fuse()" => ["0", "1", "2"]
+	};
+	core::iter::Skip[I] {
+		"(0..).skip(2)" => ["2", "3", "4"]
+	};
+	core::iter::StepBy[I]{
+		"(0..).step_by(2)" => ["0", "2", "4"]
+	};
+	core::iter::Peekable[I] {
+		"(0..).peekable()" => ["0", "1", "2"]
+	};
 }
 
 /// It is used on the implementation of [`from_fn()`]. See [`from_fn()`]
