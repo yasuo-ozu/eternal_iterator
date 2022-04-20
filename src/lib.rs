@@ -249,6 +249,7 @@ where
 
 /// It is used on the implementation of [`wrap_unsafe()`]. See [`wrap_unsafe()`]
 /// document for details.
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default, Debug)]
 pub struct UnsafeWrapper<I>(I);
 
 /// Wraps [`Iterator`] to be seen as [`EternalIterator`].
@@ -300,3 +301,11 @@ impl<I: Iterator> Iterator for UnsafeWrapper<I> {
 
 // SAFETY: Checked with `wrap_unsafe()`
 unsafe impl<I: Iterator> EternalIterator for UnsafeWrapper<I> {}
+
+impl<I: Iterator> core::iter::FusedIterator for UnsafeWrapper<I> {}
+
+impl<I: Iterator, const N: usize> From<UnsafeWrapper<I>> for [I::Item; N] {
+	fn from(mut it: UnsafeWrapper<I>) -> Self {
+		it.next_array()
+	}
+}
