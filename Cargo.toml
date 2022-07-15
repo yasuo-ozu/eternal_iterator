@@ -9,5 +9,6 @@ readme = "README.md"
 repository = "https://github.com/yasuo-ozu/eternal_iterator"
 keywords = ["iterator", "data-structure"]
 categories = ["algorithms", "rust-patterns"]
+rust-version = "1.54"
 
 [dependencies]
